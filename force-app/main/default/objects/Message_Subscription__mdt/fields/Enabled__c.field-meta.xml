@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Enabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Allows Enabling/Disabling a subscription.  Determines if outbox records are created at the time the Message is inserted.  Outbox records that are already created will still attempt to send.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Allows Enabling/Disabling a subscription.  Determines if outbox records are created at the time the Message is inserted.  Outbox records that are already created will still attempt to send.</inlineHelpText>
+    <label>Enabled</label>
+    <type>Checkbox</type>
+</CustomField>

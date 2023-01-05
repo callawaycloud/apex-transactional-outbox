@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Message__c</fullName>
+    <description>The Data of the message. This maybe the Message to rely itself, or raw data to be processed further by an "Message Resolver" during the outbox processing.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The Data of the message. This maybe the Message to rely itself, or raw data to be processed further by an "Message Resolver" during the outbox processing.</inlineHelpText>
+    <label>Log</label>
+    <length>131072</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>
