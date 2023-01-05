@@ -8,6 +8,10 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 
 ## How this works
 
+![Transactional Outbox Abstraction](https://user-images.githubusercontent.com/5217568/210857768-4b13a455-a355-4bc1-b0b8-4a08877e617c.png)
+
+*The above diagram is a conceptual abstraction for the key aspects of the framework*
+
 1.  Some process (trigger/event/etc) creates a "Message" (eg: event), specifying it's `type` & `payload`.
 - A "outbox" record is created for each "Subscription" to the Message which will track the status of the message.  
 - These records are all part of the atomic "Domain Transaction"
