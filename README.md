@@ -1,6 +1,6 @@
 # Apex Transactional Outbox
 
-A lightweight framework for external message communication with transactional guarantee.  Ideal for webhooks or other "event driven" communication.
+A lightweight framework for external message communication with transactional guarantee.  Ideal for webhooks or other "directed event driven" communication.
 
 Implemented using a "Transactional Outbox" with support for "fan out" (sending the same message to `n` subscribers).
 
@@ -8,13 +8,12 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 
 ## How this works
 
-1. (START TRANSACTION) A process (trigger/event/etc) creates a "Message" (event), specifying it's `type` & `payload`.
-1. A "outbox" record is created for each "Subscription" to the message to track the status of the message.  (END TRANSACTION)
-1. In a new context, a "relay" runs to process the outbox.  It will attempt to send each pending item in the outbox.
-1. If the message is successful, the Outbox Item is marked as complete.  If it fails, the exception is logged, and it will be retried at some point in the future.
+1.  Some process (trigger/event/etc) creates a "Message" (eg: event), specifying it's `type` & `payload`.
+- A "outbox" record is created for each "Subscription" to the Message which will track the status of the message.  
+- These records are all part of the atomic "Domain Transaction"
+1. In a new context (in Near Real Time), a "Relay" runs to process the outbox.  It will attempt to send each pending item in the outbox.
+1. If the message is successful, the "Outbox" is marked as complete.  If it fails, the exception is logged, and it will be retried at some point in the future.
 
-
-## Usage
 
 ### Definitions:
 
@@ -27,6 +26,7 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 - "Message Resolver" (`IMessageResolver.cls`): An optional process to "enhance" or modify the message payload at relay runtime.
 - "OutboxRelayContext" (`OutboxRelayContext.cls`): The context passed to the "Relay Client" for each outbox item.  Contains the Message Payload, information on previous attempts, ability to log, etc.
 
+## Usage
 
 ### 1. Define the Messages
 
@@ -65,14 +65,23 @@ Construct and insert a `Outbox_Message__c`:
 
 When a `Outbox_Message__c` is inserted, a `Subscription_Outbox__c` record will be created for each Active subscription related to the message definition.
 
+See the code in `example/main/default` for a full working example.
+
 ## Advanced
+
+### Custom IRelayClient
+
+The package comes with a `GenericHttpRelayClient` which can be configured for many simple use cases.  However, you may need to write a custom relay client.
+
+WARNINGS: 
+- The execution of Relay Clients is not bulkified.  The `send` method will be executed once per outbox.  It is best to avoid DML.
+- 
 
 ### Message "enhancement"
 
-Messages can be "Enhanced" at runtime.  This allows additional capabilities and behavior.
+Messages can be "Enhanced" during Relay.  This allows additional capabilities and behavior.
 
-For example, you may choose to only pass a Record Id into a `Event.Message__c`.  A custom `IOutboxMessageResolver` could then be used to query details about the case and construct a totally different payload.  
-
+For example, if you always wanted to pass the most recent data from a record, you could store only the "Record Id" into a `Event.Message__c`.  A custom `IOutboxMessageResolver` could then be used to query additional details about the record.
 
 NOTE: A custom `IRelayClient` also has the opportunity to change the message.  This should be used when different subscription need different messages.  This operation is NOT bulkified!
 
@@ -84,17 +93,21 @@ Once a message has been "Dead-Lettered" relay attempts will stop.  To remove a O
 - Increase the `Max_Attempts__c` to some value greater than the `Relay_Attempts__c`
 - Uncheck `Manual_Deadletter__c`
 
-### Relay Message Order
+### Relay Message Ordering
 [TODO]
 
+### Relay Limits
 
+THe `OutboxRelayQueuable` will attempt to process all the messages in the outbox, without any consideration of if it will exceed the context limits.  If a limit is hit, the `TransactionalFinalizer` should result in the Relay Results being properly recorded.
+
+This allows the Relay to operate at maximum efficiency without having to have knowledge of the resources consumed by the different "Relay Clients".
 
 ## Questions
 
-### Why not use Platform Events?
+### Why not use Platform Events (PE)?
 
 At first glance, platform events (configured to NOT fire "immediate") seems like a great choice to represent the "Message" instead of the Custom Object.  However there are several reasons why we feel "Custom Object" are a better choice:
 
 1. Lifespan: Platform Events only persist for 72 hours max
-2. Reliability: Salesforce does NOT guarantee delivery of it's own messages 
+2. Reliability: Salesforce does NOT guarantee delivery of PE ("at most once" delivery)
 3. Observability: Custom Object are much more visible and easier to debug
