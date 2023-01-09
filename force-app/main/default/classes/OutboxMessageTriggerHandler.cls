@@ -14,38 +14,34 @@ public with sharing class OutboxMessageTriggerHandler {
 
     // setup an "outbox" record for each subscription
     Message_Subscription__mdt[] subscriptions = [
-      SELECT DeveloperName, QualifiedApiName, Message_Definition__r.DeveloperName, Max_Attempts__c
+      SELECT
+        DeveloperName,
+        QualifiedApiName,
+        Application__c,
+        Message_Definition__r.DeveloperName,
+        Max_Attempts__c
       FROM Message_Subscription__mdt
-      WHERE Message_Definition__r.DeveloperName IN :recordsByMessageType.keySet()
+      WHERE
+        Message_Definition__r.DeveloperName IN :recordsByMessageType.keySet()
+        AND Enabled__c = TRUE
     ];
 
     List<Subscription_Outbox__c> outboxToInsert = new List<Subscription_Outbox__c>();
     for (Message_Subscription__mdt sub : subscriptions) {
-      for (Outbox_Message__c subEvt : recordsByMessageType.get(sub.Message_Definition__r.DeveloperName)) {
+      for (
+        Outbox_Message__c subEvt : recordsByMessageType.get(sub.Message_Definition__r.DeveloperName)
+      ) {
         Subscription_Outbox__c outbox = new Subscription_Outbox__c(
           Outbox_Message__c = subEvt.Id,
           Subscription__c = sub.DeveloperName,
-          Max_Attempts__c = sub.Max_Attempts__c
+          Max_Attempts__c = sub.Max_Attempts__c,
+          Application__c = sub.Application__c
         );
         outboxToInsert.add(outbox);
       }
     }
     insert outboxToInsert;
 
-    // already in batch or future context... Will have to get picked up by scheduled apex cleanup job?  
-    // Or we could fire an immediate message to kick off the batch?
-    // if(!System.isFuture() && !System.isBatch()){
-    //     // if (outboxToInsert.size() < 50) {
-    //     //     OutboxRelay.executeRelayFuture(Trigger.newMap.keySet());
-    //     // }else{
-    //     //     System.scheduleBatch(new OutboxRelayBatch(), 'outbox:near-real-time', 1);
-    //     // }
-        
-    // }
-    if(Limits.getQueueableJobs() < Limits.getLimitQueueableJobs()){
-      System.enqueueJob(new OutboxRelayQueuable());
-    }
-    
+    OutboxRelayQueuable.enqueue(null);
   }
-
 }

@@ -7,8 +7,6 @@
     <inlineHelpText>Optional. Configuration for the Subscription. Passed to the Relay Client via the context</inlineHelpText>
     <label>Config</label>
     <length>131072</length>
-    <required>false</required>
     <type>LongTextArea</type>
-    <unique>false</unique>
     <visibleLines>3</visibleLines>
 </CustomField>

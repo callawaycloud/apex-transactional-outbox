@@ -3,26 +3,33 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
   }
 
   /**
-   * - Intentionally not dealing with callout Limits... This should allow the queueable to run as many outboxes as possible.
+   * - Intentionally not dealing with callout Limits... This should maxiumize the work done in a single Async Context
    */
   public void execute(QueueableContext ctx) {
     //TODO: confirm "FOR UPDATE" actually "locks" these records?
     // Should be Locked until at least the transactional Finalizer?
-    List<Subscription_Outbox__c> outboxRecords = [
+    List<Subscription_Outbox__c> outboxRecordsUnsorted = [
       SELECT
         Subscription__c,
+        Group_Id__c,
         Outbox_Message__c,
+        Outbox_Message__r.Sequence_Number__c,
         Outbox_Message__r.Message__c,
         Outbox_Message__r.Type__c,
         Log__c,
         Last_Error_Message__c,
         Relay_Attempts__c
       FROM Subscription_Outbox__c
-      WHERE Completed_Timestamp__c = NULL
-      AND Dead_Lettered__c = false
-      // ORDER BY ???
+      WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
       FOR UPDATE
     ];
+
+    Set<String> deadGroupIds = getDeadGroups(outboxRecordsUnsorted);
+
+    // Sort by Sequence Number
+    List<Subscription_Outbox__c> outboxRecords = OutboxUtils.sortOutboxForProcessing(
+      outboxRecordsUnsorted
+    );
 
     OutboxFinalizer finalizer = new OutboxFinalizer(outboxRecords.size());
     System.attachFinalizer(finalizer);
@@ -43,9 +50,13 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
     Map<String, Message_Subscription__mdt> subscriptionsMetadataMap = OutboxMetadataProvider.getMessageSubscritionMap(
       msgsByType.keySet()
     );
-    
+
     // Process Each Outbox
     for (Subscription_Outbox__c item : outboxRecords) {
+      //check if item is part of a "deadlettered group"
+      if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
+        continue;
+      }
       Message_Subscription__mdt subDef = subscriptionsMetadataMap.get(item.Subscription__c);
       Map<String, Object> subConfig = OutboxMetadataProvider.getSubscriptionConfig(subDef);
       Object resolvedEvt = allresolvedMessages.get(item.Outbox_Message__c);
@@ -58,6 +69,10 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
         obCtx.setSuccess();
       } catch (Exception e) {
         obCtx.setError(e);
+        if (item.Group_Id__c != null) {
+          // cannot continue processing any other messages in this group
+          deadGroupIds.add(item.Group_Id__c);
+        }
       } finally {
         //TODO: should this be added before? What happens if limit exception is thrown?
         finalizer.addResult(obCtx);
@@ -68,10 +83,35 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
   }
 
   /**
+   * Dead groups are subscription message groups which have an item in the dead letter queue.
+   * We cannot continue processing the rest of the group until resolved
+   */
+  private static Set<String> getDeadGroups(List<Subscription_Outbox__c> outboxRecords) {
+    Set<String> activeGroupIds = new Set<String>();
+    for (Subscription_Outbox__c item : outboxRecords) {
+      if (item.Group_Id__c != null) {
+        activeGroupIds.add(item.Group_Id__c);
+      }
+    }
+
+    Set<String> deadGroups = new Set<String>();
+    if (activeGroupIds.size() > 0) {
+      for (Subscription_Outbox__c item : [
+        SELECT Group_Id__c
+        FROM Subscription_Outbox__c
+        WHERE Dead_Lettered__c = TRUE AND Group_Id__c IN :activeGroupIds
+      ]) {
+        deadGroups.add(item.Group_Id__c);
+      }
+    }
+
+    return deadGroups;
+  }
+
+  /**
    * Bulk Resolve Messages.
    */
   private static Map<Id, Object> resolveMessages(Map<String, Outbox_Message__c[]> msgsByType) {
-
     Map<String, Message_Definition__mdt> definitionsByLabel = OutboxMetadataProvider.getMessageDefintionMap(
       msgsByType.keySet()
     );
@@ -135,12 +175,14 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
       for (Database.SaveResult sr : results) {
         if (sr.isSuccess()) {
           saved.add(sr.getId());
+        } else {
+          System.debug('Failed to save result');
+          System.debug(sr.getErrors());
         }
       }
     }
 
     public void execute(FinalizerContext ctx) {
-      Boolean moreWork = outboxCount > results.size();
       // Should we get a new query lock?
       Exception e = ctx.getException();
       if (e != null) {
@@ -151,11 +193,53 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
 
       save();
 
-      if (moreWork) {
-        if (Limits.getQueueableJobs() < Limits.getLimitQueueableJobs()) {
-          System.enqueueJob(new OutboxRelayQueuable());
+      try {
+        Subscription_Outbox__c[] activeOutboxItems = [
+          SELECT Id
+          FROM Subscription_Outbox__c
+          WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
+          LIMIT 1
+        ];
+        // more work to be done
+        if (activeOutboxItems.size() > 0) {
+          OutboxRelayQueuable.enqueue(ctx.getAsyncApexJobId());
         }
+      } catch (Exception ex) {
+        System.debug('Exception prevented enqueue OutboxRelayQueuable');
+        System.debug(ex);
       }
     }
+  }
+
+  private static boolean alreadyQueuedInContext = false;
+  public static void enqueue(Id currentAsyncJobId) {
+    if (alreadyQueuedInContext) {
+      System.debug('Already enqueue in this context');
+      return;
+    }
+
+    if (Limits.getQueueableJobs() >= Limits.getLimitQueueableJobs()) {
+      System.debug('Unable to enqueue OutboxRelayQueuable due to limits');
+      return;
+    }
+
+    AsyncApexJob[] currentJobs = [
+      SELECT Id, ApexClass.Name, ExtendedStatus, Status
+      FROM AsyncApexJob
+      WHERE
+        JobType = 'Queueable'
+        AND ApexClass.Name = 'OutboxRelayQueuable'
+        AND Status IN ('Preparing', 'Processing', 'Queued')
+        AND Id != :currentAsyncJobId
+      ORDER BY CreatedDate DESC
+    ];
+
+    if (currentJobs.size() > 0) {
+      System.debug('Relay Job already in progress: ' + currentJobs[0].Id);
+      return;
+    }
+
+    System.enqueueJob(new OutboxRelayQueuable());
+    alreadyQueuedInContext = true;
   }
 }

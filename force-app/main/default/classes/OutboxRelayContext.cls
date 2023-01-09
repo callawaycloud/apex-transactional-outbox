@@ -29,7 +29,7 @@ public class OutboxRelayContext {
 
     //these should always be set by Relay, but we could allow the clients to access them for more flexiblity
     public void setError(Exception e){
-        outbox.Last_Error_Message__c = e.getMessage();
+        outbox.Last_Error_Message__c = e.getMessage() + '\n' + e.getStackTraceString();
     }
     
     // will be called by OutboxRelay

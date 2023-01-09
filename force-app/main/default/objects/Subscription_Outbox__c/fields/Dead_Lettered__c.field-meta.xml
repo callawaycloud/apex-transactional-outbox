@@ -3,7 +3,7 @@
     <fullName>Dead_Lettered__c</fullName>
     <description>Once a message is dead lettered, Message Relay will no longer be attempted</description>
     <externalId>false</externalId>
-    <formula>Relay_Attempts__c &gt;  Max_Attempts__c || Manual_Deadletter__c == true</formula>
+    <formula>IsBlank(Completed_Timestamp__c) &amp;&amp; (Relay_Attempts__c &gt;=  Max_Attempts__c || Manual_Deadletter__c == true)</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
     <inlineHelpText>Once a message is dead lettered, Message Relay will no longer be attempted.</inlineHelpText>
     <label>Dead Lettered</label>

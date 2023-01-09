@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>case-created-system1</label>
+    <label>case-updated-system1</label>
     <protected>false</protected>
     <values>
         <field>Application__c</field>
@@ -9,9 +9,9 @@
     <values>
         <field>Config__c</field>
         <value xsi:type="xsd:string">{
-     &quot;uri&quot;: &quot;https://google.com&quot;,
-     &quot;method&quot;: &quot;GET&quot;
-  }</value>
+&quot;uri&quot;: &quot;https://google.com&quot;,
+&quot;method&quot;: &quot;GET&quot;
+}</value>
     </values>
     <values>
         <field>Enabled__c</field>
@@ -23,7 +23,7 @@
     </values>
     <values>
         <field>Message_Definition__c</field>
-        <value xsi:type="xsd:string">case_created</value>
+        <value xsi:type="xsd:string">case_updated</value>
     </values>
     <values>
         <field>Relay_Client__c</field>
