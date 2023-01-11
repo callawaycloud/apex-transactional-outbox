@@ -64,8 +64,8 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
 
       try {
         obCtx.setAttempt();
-        IOutboxRelayClient carrier = OutboxMetadataProvider.getSubscriptionRelayClient(subDef);
-        carrier.send(obCtx);
+        IOutboxRelayClient client = OutboxMetadataProvider.getSubscriptionRelayClient(subDef);
+        client.send(obCtx);
         obCtx.setSuccess();
       } catch (Exception e) {
         obCtx.setError(e);
@@ -211,7 +211,7 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
     }
   }
 
-  private static boolean alreadyQueuedInContext = false;
+  @testvisible static boolean alreadyQueuedInContext = false;
   public static void enqueue(Id currentAsyncJobId) {
     if (alreadyQueuedInContext) {
       System.debug('Already enqueue in this context');

@@ -12,22 +12,18 @@ public with sharing class OutboxMessageTriggerHandler {
       evts.add(evt);
     }
 
-    // setup an "outbox" record for each subscription
-    Message_Subscription__mdt[] subscriptions = [
-      SELECT
-        DeveloperName,
-        QualifiedApiName,
-        Application__c,
-        Message_Definition__r.DeveloperName,
-        Max_Attempts__c
-      FROM Message_Subscription__mdt
-      WHERE
-        Message_Definition__r.DeveloperName IN :recordsByMessageType.keySet()
-        AND Enabled__c = TRUE
-    ];
+    Message_Subscription__mdt[] subscriptions = OutboxMetadataProvider.getMessageSubscritionMap(
+        recordsByMessageType.keySet()
+      )
+      .values();
 
+    // setup an "outbox" record for each subscription
     List<Subscription_Outbox__c> outboxToInsert = new List<Subscription_Outbox__c>();
     for (Message_Subscription__mdt sub : subscriptions) {
+      if (sub.Enabled__c == false) {
+        continue;
+      }
+
       for (
         Outbox_Message__c subEvt : recordsByMessageType.get(sub.Message_Definition__r.DeveloperName)
       ) {
@@ -35,7 +31,7 @@ public with sharing class OutboxMessageTriggerHandler {
           Outbox_Message__c = subEvt.Id,
           Subscription__c = sub.DeveloperName,
           Max_Attempts__c = sub.Max_Attempts__c,
-          Application__c = sub.Application__c
+          Application__c = sub.Application__r.DeveloperName
         );
         outboxToInsert.add(outbox);
       }

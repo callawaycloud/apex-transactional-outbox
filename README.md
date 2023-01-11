@@ -8,7 +8,8 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 
 ## How this works
 
-![Transactional Outbox Abstraction](https://user-images.githubusercontent.com/5217568/210857768-4b13a455-a355-4bc1-b0b8-4a08877e617c.png)
+![Transactional Outbox Abstraction](https://user-images.githubusercontent.com/5217568/211720999-0ba7a702-278e-471f-a1ca-e68a4ac30faa.png)
+
 
 *The above diagram is a conceptual abstraction for the key aspects of the framework*
 
@@ -21,6 +22,7 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 
 ### Definitions:
 
+- "Application" (`Application__mdt`): An system/entity that receives messages. Used to group subscriptions76.
 - "Message Definition" (`Message_Definition__mdt`): Defines the message type and how it's payload is processed
 - "Message Subscription" (`Message_Subscription__mdt`): Defines who will receive each message.
 - "Outbox Message" (`Outbox_Message__c`): An instance of message to be sent to each subscriber.  Tracks the payload of the message.
@@ -97,8 +99,13 @@ Once a message has been "Dead-Lettered" relay attempts will stop.  To remove a O
 - Increase the `Max_Attempts__c` to some value greater than the `Relay_Attempts__c`
 - Uncheck `Manual_Deadletter__c`
 
-### Relay Message Ordering
-[TODO]
+### Message Groups
+
+A "Group Identifier" (`Group_Id__c`) can be assigned to a Outbox Message when it is created.  For each Application, group messages are guaranteed to be delivered successfully in sequential order.  This is useful when you need to ensure temporal consistency of messages.
+
+For example, you might assign all messages related to a group via the record id to ensure messages are delivered in order.
+
+WARNING: If a message is dead lettered, processing for the Group can not continue until that message is marked as delivered (or deleted).
 
 ### Relay Limits
 
