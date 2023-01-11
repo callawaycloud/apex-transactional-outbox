@@ -2,9 +2,9 @@
 
 A lightweight framework for external message communication with transactional guarantee.  Ideal for webhooks or other "directed event driven" communication.
 
-Implemented using a "Transactional Outbox" with support for "fan out" (sending the same message to `n` subscribers).
+Implemented using a ["Transactional Outbox"](https://microservices.io/patterns/data/transactional-outbox.html) with support for "fan out" (sending the same message to `n` subscribers).
 
-NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2).  Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.
+*NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2).  Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.*
 
 ## How this works
 
@@ -16,8 +16,8 @@ NOTE: This framework provides a [delivery guarantee of "At Least Once"](https://
 1.  Some process (trigger/event/etc) creates a "Message" (eg: event), specifying it's `type` & `payload`.
 - A "outbox" record is created for each "Subscription" to the Message which will track the status of the message.  
 - These records are all part of the atomic "Domain Transaction"
-1. In a new context (in Near Real Time), a "Relay" runs to process the outbox.  It will attempt to send each pending item in the outbox.
-1. If the message is successful, the "Outbox" is marked as complete.  If it fails, the exception is logged, and it will be retried at some point in the future.
+2. In a new context (in Near Real Time), a "Relay" runs to process the outbox.  It will attempt to send each pending item in the outbox.
+3. If the message is successful, the "Outbox" is marked as complete.  If it fails, the exception is logged, and it will be retried at some point in the future.
 
 
 ### Definitions:
@@ -79,9 +79,9 @@ See the code in `example/main/default` for a full working example.
 
 The package comes with a `GenericHttpRelayClient` which can be configured for many simple use cases.  However, you may need to write a custom relay client.
 
-WARNINGS: 
+*WARNINGS:* 
 - The execution of Relay Clients is not bulkified.  The `send` method will be executed once per outbox.  It is best to avoid DML.
-- 
+- The same client instance is used to send all messages for a given subscription
 
 ### Message "enhancement"
 
@@ -105,13 +105,21 @@ A "Group Identifier" (`Group_Id__c`) can be assigned to a Outbox Message when it
 
 For example, you might assign all messages related to a group via the record id to ensure messages are delivered in order.
 
-WARNING: If a message is dead lettered, processing for the Group can not continue until that message is marked as delivered (or deleted).
+*WARNING: If a message is dead lettered, processing for the Group can not continue until that message is marked as delivered (or deleted).*
 
 ### Relay Limits
 
 THe `OutboxRelayQueuable` will attempt to process all the messages in the outbox, without any consideration of if it will exceed the context limits.  If a limit is hit, the `TransactionalFinalizer` should result in the Relay Results being properly recorded.
 
 This allows the Relay to operate at maximum efficiency without having to have knowledge of the resources consumed by the different "Relay Clients".
+
+### Record Cleanup
+
+[TODO]: Scheduled job to remove any event where all it's outbox's have completed.  Via TTL date?
+
+## Creating Messages in Flows (Invokable)
+
+[TODO]
 
 ## Questions
 
