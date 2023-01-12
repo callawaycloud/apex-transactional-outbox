@@ -6,8 +6,7 @@ public with sharing class OutboxRelayQueuable implements Queueable, Database.All
    * - Intentionally not dealing with callout Limits... This should maxiumize the work done in a single Async Context
    */
   public void execute(QueueableContext ctx) {
-    //TODO: confirm "FOR UPDATE" actually "locks" these records?
-    // Should be Locked until at least the transactional Finalizer?
+    // Checkout outbox records with Lock
     List<Subscription_Outbox__c> outboxRecordsUnsorted = [
       SELECT
         Subscription__c,

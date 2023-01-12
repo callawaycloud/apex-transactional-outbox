@@ -25,7 +25,7 @@ public class OutboxMetadataProvider {
       subscriptions = [
         SELECT
           DeveloperName,
-          QualifiedApiName,
+          Application__r.DeveloperName,
           Message_Definition__r.DeveloperName,
           Relay_Client__c,
           Config__c,
