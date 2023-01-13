@@ -1,7 +1,7 @@
-public with sharing class CaseCreatedRelayClient implements IOutboxRelayClient {
-    public void send(OutboxRelayContext ctx) {
+public with sharing class CaseCreatedRelayClient implements TB_IOutboxRelayClient {
+    public void send(TB_OutboxRelayContext ctx) {
         Case evt = (Case) ctx.resolvedMessage;
-        
+
         ctx.log('Processing Record: ' + evt.Id);
         // replace with carrier
         HttpRequest req = new HttpRequest();
@@ -11,12 +11,10 @@ public with sharing class CaseCreatedRelayClient implements IOutboxRelayClient {
         HTTPResponse res = http.send(req);
         ctx.log('Status Code: ' + res.getStatusCode());
         if (res.getStatusCode() > 301) {
-          throw new TestException('testing');
+            throw new TestException('testing');
         }
-      }
-    
+    }
 
     public class TestException extends Exception {
     }
 }
-
