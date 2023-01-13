@@ -17,9 +17,13 @@ Implemented using a ["Transactional Outbox"](https://microservices.io/patterns/d
 
 ### Planned improvements:
 
--   **Automatic Circuit Breaking**: If a message to be delivered to a subscription, a "Circuit Breaker" can be triggered to prevent other attempts for a period of time
--   **Retry Back-off**: Configure retry back-offs to give the downstream system time to come back up
--   **Message TTL (time-to-live)**: Automatically remove messages & outbox records after they have been completed
+- **Automatic Circuit Breaking**: If a message to be delivered to a subscription, a "Circuit Breaker" can be triggered to prevent other attempts for a period of time
+- **Retry Back-off**: Configure retry back-offs to give the downstream system time to come back up
+- **Message TTL (time-to-live)**: Automatically remove messages & outbox records after they have been completed
+- **Unique Message Controls**: Add ability to control message uniqueness.  
+    - Only allowing a specific message to be queued once (must be considered with message TTL)
+    - Not creating a duplicate outbox if one is already active (to increase efficiency)
+
 
 *   `*`: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2). Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.\*
 
