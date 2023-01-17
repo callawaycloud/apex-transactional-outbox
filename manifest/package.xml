@@ -27,6 +27,10 @@
     <name>CustomObject</name>
   </types>
   <types>
+    <members>TB_Outbox_Message__c</members>
+    <name>CustomTab</name>
+  </types>
+  <types>
     <members>TB_Application__mdt-Application Layout</members>
     <members>TB_Message_Definition__mdt-Message Definition Layout</members>
     <members>TB_Message_Subscription__mdt-Message Subscription Layout</members>

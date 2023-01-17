@@ -2,7 +2,7 @@
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
     >Defines Subscriptions to each message.  Any time an message is fired, an outbox record will be setup for each Active subscription</description>
-    <label>Message Subscription</label>
-    <pluralLabel>Message Subscriptions</pluralLabel>
+    <label>TB Message Subscription</label>
+    <pluralLabel>TB Message Subscriptions</pluralLabel>
     <visibility>Public</visibility>
 </CustomObject>
