@@ -60,7 +60,7 @@ After installing the package, run the following anonymous apex to schedule the "
 ```apex
 // Schedule the Outbox Relay Cleanup Process
 // This ensures that the Outbox Relay processes picks back up if it fails to chain
-System.schedule('TB_OutboxRelayCleanup', '0 0 0 * * ?', new TB_OutboxRelayCleanup());
+System.schedule('TB Outbox Cleanup', '0 0 * * * ?', new TB_ScheduleRelay()); // Every hour
 ```
 
 ### 1. Create an "Application"
