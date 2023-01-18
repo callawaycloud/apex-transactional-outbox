@@ -28,7 +28,8 @@ public class TB_OutboxMetadataProvider {
                     Relay_Client__c,
                     Config__c,
                     Max_Attempts__c,
-                    Enabled__c
+                    Enabled__c,
+                    After_Relay_Action__c
                 FROM TB_Message_Subscription__mdt
             ];
         }
@@ -71,5 +72,15 @@ public class TB_OutboxMetadataProvider {
 
     public static TB_IOutboxMessageResolver getMessageResolver(TB_Message_Definition__mdt def) {
         return (TB_IOutboxMessageResolver) TB_OutboxUtils.constructFromName(def.Message_Resolver__c);
+    }
+
+    public static Map<String, TB_IAfterRelayAction> getAfterRelayActionsMap(TB_Message_Subscription__mdt[] subsMdt) {
+        Map<String, TB_IAfterRelayAction> afterRelayActions = new Map<String, TB_IAfterRelayAction>();
+        for (TB_Message_Subscription__mdt sub : subsMdt) {
+            if (sub.After_Relay_Action__c != null) {
+                afterRelayActions.put(sub.DeveloperName, (TB_IAfterRelayAction) TB_OutboxUtils.constructFromName(sub.After_Relay_Action__c));
+            }
+        }
+        return afterRelayActions;
     }
 }

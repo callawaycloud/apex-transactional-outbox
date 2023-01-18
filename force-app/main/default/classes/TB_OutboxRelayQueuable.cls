@@ -17,7 +17,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 Outbox_Message__r.Type__c,
                 Log__c,
                 Last_Error_Message__c,
-                Relay_Attempts__c
+                Relay_Attempts__c,
+                Completed_Timestamp__c
             FROM TB_Subscription_Outbox__c
             WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
             FOR UPDATE
@@ -27,9 +28,6 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
 
         // Sort by Sequence Number
         List<TB_Subscription_Outbox__c> outboxRecords = TB_OutboxUtils.sortOutboxForProcessing(outboxRecordsUnsorted);
-
-        OutboxFinalizer finalizer = new OutboxFinalizer(outboxRecords.size());
-        System.attachFinalizer(finalizer);
 
         // group messages by type to resolve
         Map<String, TB_Outbox_Message__c[]> msgsByType = new Map<String, TB_Outbox_Message__c[]>();
@@ -47,6 +45,13 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         Map<String, TB_Message_Subscription__mdt> subscriptionsMetadataMap = TB_OutboxMetadataProvider.getMessageSubscritionMap(
             msgsByType.keySet()
         );
+
+        Map<String, TB_IAfterRelayAction> afterRelayActions = TB_OutboxMetadataProvider.getAfterRelayActionsMap(
+            subscriptionsMetadataMap.values()
+        );
+
+        OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions);
+        System.attachFinalizer(finalizer);
 
         // Process Each Outbox
         for (TB_Subscription_Outbox__c item : outboxRecords) {
@@ -133,12 +138,14 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
      * WARNING: There is perhaps a small chance that a new TB_OutboxRelayQueuable job could start up in the time between the origional job and the finalizer execution...
      */
     private class OutboxFinalizer implements Finalizer {
-        private Integer outboxCount;
         // Id -> Success Timestamp
         private Map<Id, TB_OutboxRelayContext> results;
         private Set<Id> saved;
-        private OutboxFinalizer(Integer outboxCount) {
-            this.outboxCount = outboxCount;
+
+        private Map<String, TB_IAfterRelayAction> afterRelayActions = new Map<String, TB_IAfterRelayAction>();
+
+        private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions) {
+            this.afterRelayActions = afterRelayActions;
             saved = new Set<Id>();
             results = new Map<Id, TB_OutboxRelayContext>();
         }
@@ -202,6 +209,38 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             } catch (Exception ex) {
                 System.debug('Exception prevented enqueue TB_OutboxRelayQueuable');
                 System.debug(ex);
+            }
+            executeAfterActions();
+        }
+
+        /** Run all After Relay Actions */
+        private void executeAfterActions(){
+            if(afterRelayActions.isEmpty()){
+                return;
+            }
+
+            //group results by subscription__c
+            Map<String, List<TB_OutboxRelayContext>> resultsBySubscription = new Map<String, List<TB_OutboxRelayContext>>();
+            for (TB_OutboxRelayContext item : results.values()) {
+                if (resultsBySubscription.containsKey(item.outbox.Subscription__c)) {
+                    resultsBySubscription.get(item.outbox.Subscription__c).add(item);
+                } else {
+                    resultsBySubscription.put(item.outbox.Subscription__c, new List<TB_OutboxRelayContext>{ item });
+                }
+            }
+
+            //run each after relay action
+            for (String subscriptionKey : afterRelayActions.keySet()) {
+                try{
+                    TB_IAfterRelayAction action = afterRelayActions.get(subscriptionKey);
+                    if(action != null){
+                        action.execute(resultsBySubscription.get(subscriptionKey));
+                    }
+                }catch(Exception e){
+                    // eat the exception.  They should have handled it themselves :(
+                    System.debug('Exception executing after relay action for subscription ' + subscriptionKey);
+                    System.debug(e);
+                }
             }
         }
     }

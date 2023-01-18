@@ -29,6 +29,7 @@ public class TB_GenericHttpRelayClient implements TB_IOutboxRelayClient {
         req.setMethod(method);
         Http http = new Http();
         HTTPResponse res = http.send(req);
+        ctx.setResult(new GenericRelayResult(res));
         ctx.log('Status Code: ' + res.getStatusCode());
         if (res.getStatusCode() > 300) {
             throw new HttpRelayException(
@@ -39,5 +40,25 @@ public class TB_GenericHttpRelayClient implements TB_IOutboxRelayClient {
     }
 
     public class HttpRelayException extends Exception {
+    }
+
+    public class GenericRelayResult {
+        public HttpResponseResult response;
+        //TODO: Add request details?
+        public GenericRelayResult(HttpResponse res) {
+            response = new HttpResponseResult(res);
+        }
+    }
+
+    public class HttpResponseResult {
+        public Integer statusCode;
+        public string status;
+        public String body;
+        //TODO: Add headers?
+        public HttpResponseResult(HttpResponse res){
+            this.statusCode = res.getStatusCode();
+            this.status = res.getStatus();
+            this.body = res.getBody();
+        }
     }
 }
