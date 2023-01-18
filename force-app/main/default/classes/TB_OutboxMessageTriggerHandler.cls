@@ -1,5 +1,22 @@
 public with sharing class TB_OutboxMessageTriggerHandler {
     public void handle() {
+        if (Trigger.isBefore && Trigger.isInsert) {
+            beforeInsert();
+        } else if (Trigger.isAfter && Trigger.isInsert) {
+            afterInsert();
+        }
+    }
+
+    private static void beforeInsert() {
+        Map<String, TB_Message_Definition__mdt> messageDefinitions = TB_Message_Definition__mdt.getAll();
+        for (TB_Outbox_Message__c outboxMessage : (List<TB_Outbox_Message__c>) Trigger.new) {
+            if (!messageDefinitions.containsKey(outboxMessage.Type__c)) {
+                outboxMessage.addError('The outbox message Type does not match a message definition.');
+            }
+        }
+    }
+
+    private static void afterInsert() {
         Map<String, List<TB_Outbox_Message__c>> recordsByMessageType = new Map<String, List<TB_Outbox_Message__c>>();
         for (TB_Outbox_Message__c evt : (List<TB_Outbox_Message__c>) Trigger.new) {
             // group evts by type
