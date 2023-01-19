@@ -53,6 +53,16 @@ _The above diagram is a conceptual abstraction for the key aspects of the framew
 
 ## Usage
 
+### 0. Install & Setup
+
+After installing the package, run the following anonymous apex to schedule the "Outbox Relay" cleanup process:
+
+```apex
+// Schedule the Outbox Relay Cleanup Process
+// This ensures that the Outbox Relay processes picks back up if it fails to chain
+System.schedule('TB Outbox Cleanup', '0 0 * * * ?', new TB_ScheduleRelay()); // Every hour
+```
+
 ### 1. Create an "Application"
 
 The Application serves as the container for a set of subscriptions. How you split out multiple Applications depends on the scenario, but typically you would have 1 Application per external service.
@@ -145,3 +155,15 @@ This allows the Relay to operate at maximum efficiency without having to have kn
 ### Record Cleanup
 
 [TODO]: Scheduled job to remove any event where all it's outbox's have completed. Via `TTL` date?
+
+
+### After Relay Actions
+
+"After Relay Actions" allow you to execute code after a messages have been sent for a subscription.  This may be useful if the results need to be processed in other ways.  
+
+However, these should be used sparingly and with caution:
+
+- Actions do not have a "Transactional Guarantee".  If the action fails, the message will still be marked as "Delivered" and will not be retried.
+- Make sure to always check limits for queries, DML & do not make additional callouts. If an action triggers an "uncatchable exception", it could cause the message results to be lost in some cases and may halt the chaining of the relay job.
+
+**It is recommended that your AfterRelayAction publishes an "Immediate Platform Event" to handle additional processing.**

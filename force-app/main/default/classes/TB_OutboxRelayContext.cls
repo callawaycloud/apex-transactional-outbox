@@ -1,8 +1,27 @@
 public class TB_OutboxRelayContext {
-    public Object resolvedMessage;
+    
+    /**
+     * The Outbox record that is being relayed
+     * Contains raw information about the subscription and the message
+     */
     public TB_Subscription_Outbox__c outbox;
-    public DateTime sentTime;
+
+    /**
+     * The Configuration field from the subscription after being passed through `JSON.deserializeUntyped`
+     */
     public Map<String, Object> subscriptionConfig;
+    
+    /* 
+    * Populated by the IOutboxMessageResolver. Null if no resolver is configured.
+    * WARNING: This must be Serializable!
+    */ 
+    public Object resolvedMessage;
+
+    /* 
+    * Generic Object that can be used to store results to be used by an IAfterRelayAction
+    * WARNING: This must be Serializable!
+    */ 
+    public Object relayResult;
 
     public TB_OutboxRelayContext(
         TB_Subscription_Outbox__c outbox,
@@ -27,11 +46,15 @@ public class TB_OutboxRelayContext {
         outbox.Relay_Attempts__c++;
     }
 
+    public void setResult(Object result) {
+        this.relayResult = result;
+    }
+
     public void log(Object trace) {
         outbox.Log__c += System.now() + ': ' + trace.toString() + '\n';
     }
 
-    //these should always be set by Relay, but we could allow the clients to access them for more flexiblity
+    // will be called by OutboxRelay
     public void setError(Exception e) {
         outbox.Last_Error_Message__c = e.getMessage() + '\n' + e.getStackTraceString();
     }
@@ -39,5 +62,9 @@ public class TB_OutboxRelayContext {
     // will be called by OutboxRelay
     public void setSuccess() {
         outbox.Completed_Timestamp__c = Datetime.Now();
+    }
+
+    public boolean isComplete() {
+        return outbox.Completed_Timestamp__c != null;
     }
 }
