@@ -5,7 +5,7 @@
     >The AppId + Message Type + Group Id used to prevent processing once one of the messages in the group is dead lettered</description>
     <externalId>false</externalId>
     <formula
-    >IF(ISBLANK(Outbox_Message__r.Group_Id__c), null, Application__c + '-' + Outbox_Message__r.Type__c + '-' + Outbox_Message__r.Group_Id__c)</formula>
+    >IF(ISBLANK(Outbox_Message__r.Group_Id__c), null, Application__c + &apos;-&apos; + Outbox_Message__r.Type__c + &apos;-&apos; + Outbox_Message__r.Group_Id__c)</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
     <inlineHelpText
     >The AppId + Message Type + Group Id used to prevent processing once one of the messages in the group is dead lettered</inlineHelpText>
