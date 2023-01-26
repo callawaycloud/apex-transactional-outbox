@@ -26,6 +26,10 @@
                 <behavior>Edit</behavior>
                 <field>After_Relay_Action__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Retry_Backoff__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

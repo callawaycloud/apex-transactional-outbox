@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Retry_Backoff__c</fullName>
+    <defaultValue>&quot;0&quot;</defaultValue>
+    <description>A comma separate array of &quot;minutes&quot; to back off on each subsequent attempt.  For example, &quot;0,0,15,60,720&quot; would retry immediately twice, then after 15 minutes, 1 hr and then continue to retry every 12 hours until there are no remaining attempts.
+
+NOTE: The retry will not run until AFTER the specified timeout.  The actual timeout will depend on when the next relay request is queued or the timing of other new events that trigger the relay to run.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>A comma separate array of &quot;minutes&quot; to back off on each subsequent attempt.  For example, &quot;0,0,15,60,720&quot; would retry immediately twice, then after 15 minutes, 1 hr and then continue to retry every 12 hours until there are no remaining attempts.
+
+NOTE: The retry will not run until AFTER the specified timeout.  The actual timeout will depend on when the next relay request is queued or the timing of other new events that trigger the relay to run.</inlineHelpText>
+    <label>Retry Backoff</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

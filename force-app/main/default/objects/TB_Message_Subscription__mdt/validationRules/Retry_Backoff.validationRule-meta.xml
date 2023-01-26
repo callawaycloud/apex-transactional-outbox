@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Retry_Backoff</fullName>
+    <active>true</active>
+    <description>Validate</description>
+    <errorConditionFormula>NOT(REGEX(Retry_Backoff__c, &quot;^[0-9]+(,[0-9]+)*$&quot;))</errorConditionFormula>
+    <errorDisplayField>Retry_Backoff__c</errorDisplayField>
+    <errorMessage>Must be a series of comma seperated integers</errorMessage>
+</ValidationRule>

@@ -8,7 +8,7 @@ public with sharing class TB_OutboxMessageTriggerHandler {
     }
 
     private static void beforeInsert() {
-        Map<String, TB_Message_Definition__mdt> messageDefinitions = TB_Message_Definition__mdt.getAll();
+        Map<String, TB_Message_Definition__mdt> messageDefinitions = TB_OutboxMetadataProvider.getMessageDefintionMap();
         for (TB_Outbox_Message__c outboxMessage : (List<TB_Outbox_Message__c>) Trigger.new) {
             if (!messageDefinitions.containsKey(outboxMessage.Type__c)) {
                 outboxMessage.addError('The outbox message Type does not match a message definition.');

@@ -1,7 +1,8 @@
 public class TB_OutboxMetadataProvider {
     @testVisible
     static TB_Message_Definition__mdt[] msgDefinitions;
-    public static Map<String, TB_Message_Definition__mdt> getMessageDefintionMap(Set<String> msgTypes) {
+
+    public static Map<String, TB_Message_Definition__mdt> getMessageDefintionMap() {
         if (msgDefinitions == null) {
             msgDefinitions = [
                 SELECT DeveloperName, QualifiedApiName, Message_Resolver__c
@@ -55,6 +56,27 @@ public class TB_OutboxMetadataProvider {
         }
         configCache.put(subscriptionDef.DeveloperName, config);
         return config;
+    }
+
+    static Map<String, Integer[]> retryBackOffCache = new Map<String, Integer[]>();
+    public static DateTime getSubscriptionNextAttemptTimeStamp(TB_Message_Subscription__mdt subscriptionDef, Integer attempt) {
+        if(subscriptionDef.Retry_BackOff__c == null) {
+            return null;
+        }
+
+        Integer[] backoffList = retryBackOffCache.get(subscriptionDef.DeveloperName);
+
+        // setup backoff list
+        if (backoffList == null) {
+            backoffList = new Integer[]{};
+            for(String backOff : subscriptionDef.Retry_BackOff__c.split(',')){
+                backoffList.add(Integer.valueOf(backOff));
+            }
+            retryBackOffCache.put(subscriptionDef.DeveloperName, backoffList);
+        }
+
+        // get current backoff and return new date that many minutes in the future
+        return System.now().addMinutes(backoffList[Math.min(backoffList.size() - 1, attempt - 1)]);
     }
 
     static Map<String, TB_IOutboxRelayClient> clientCache = new Map<String, TB_IOutboxRelayClient>();

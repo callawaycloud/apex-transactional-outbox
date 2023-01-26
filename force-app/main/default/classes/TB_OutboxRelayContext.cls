@@ -44,6 +44,8 @@ public class TB_OutboxRelayContext {
     public void setAttempt() {
         outbox.Last_Attempt__c = Datetime.Now();
         outbox.Relay_Attempts__c++;
+        // reset
+        this.outbox.Next_Attempt_Timestamp__c = null;
     }
 
     public void setResult(Object result) {
@@ -66,5 +68,13 @@ public class TB_OutboxRelayContext {
 
     public boolean isComplete() {
         return outbox.Completed_Timestamp__c != null;
+    }
+
+    public DateTime getNextAttemptTimestamp() {
+        return outbox.Next_Attempt_Timestamp__c;
+    }
+
+    public void setNextAttemptTimestamp(Datetime nextAttemptTimestamp) {
+        outbox.Next_Attempt_Timestamp__c = nextAttemptTimestamp;
     }
 }
