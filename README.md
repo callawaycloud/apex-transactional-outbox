@@ -146,6 +146,18 @@ For example, you might assign all messages related to a group via the record id 
 
 _WARNING: If a message is dead lettered, processing for the Group can not continue until that message is marked as delivered (or deleted)._
 
+### Retry Back-off
+
+Often it is desired to have a "backoff" strategy for retrying messages. This can allow the downstream systems time to come back up and process the message. 
+
+This can be configured via the `Message Subsciption -> Retry Backoff` field by passing a comma separate array of minutes to back off on each subsequent attempt.  
+
+For example, `0,15,60,720` would retry immediately once, then after 15 minutes, 1 hr and then continue to retry every 12 hours until there are no remaining attempts.
+
+The Relay Client may also call `ctx.setNextAttemptTimestamp()` directly to set the next attempt time. This will override the configured backoff strategy.
+
+*NOTE: The retry will not run until AFTER the specified timeout.  The actual timeout will depend on when the next relay request is queued or the timing of other new events that trigger the relay to run*
+
 ### Relay Limits
 
 THe `TB_OutboxRelayQueuable` will attempt to process all the messages in the outbox, without any consideration of if it will exceed the context limits. If a limit is hit, the `TransactionalFinalizer` should result in the Relay Results being properly recorded.

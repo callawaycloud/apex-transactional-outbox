@@ -1,11 +1,15 @@
 public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
+    DateTime executeStart;
     public TB_OutboxRelayQueuable() {
+
     }
 
     /**
      * - Intentionally not dealing with callout Limits... This should maxiumize the work done in a single Async Context
      */
     public void execute(QueueableContext ctx) {
+        executeStart = System.now();
+        
         // Checkout outbox records with Lock
         List<TB_Subscription_Outbox__c> outboxRecordsUnsorted = [
             SELECT
@@ -18,9 +22,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 Log__c,
                 Last_Error_Message__c,
                 Relay_Attempts__c,
-                Completed_Timestamp__c
+                Completed_Timestamp__c,
+                Next_Attempt_Timestamp__c
             FROM TB_Subscription_Outbox__c
-            WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
+            WHERE Completed_Timestamp__c = NULL 
+            AND Dead_Lettered__c = FALSE
+            AND (Next_Attempt_Timestamp__c <= :executeStart OR Next_Attempt_Timestamp__c = NULL)
             FOR UPDATE
         ];
 
@@ -75,6 +82,10 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
                 }
+                // set next attempt backoff (if not already set by client)
+                if(obCtx.getNextAttemptTimestamp() == null){
+                    obCtx.setNextAttemptTimestamp(TB_OutboxMetadataProvider.getSubscriptionNextAttemptTimeStamp(subDef, (Integer) obCtx.outbox.Relay_Attempts__c));
+                }
             } finally {
                 //TODO: should this be added before? What happens if limit exception is thrown?
                 finalizer.addResult(obCtx);
@@ -88,7 +99,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
      * Dead groups are subscription message groups which have an item in the dead letter queue.
      * We cannot continue processing the rest of the group until resolved
      */
-    private static Set<String> getDeadGroups(List<TB_Subscription_Outbox__c> outboxRecords) {
+    private Set<String> getDeadGroups(List<TB_Subscription_Outbox__c> outboxRecords) {
         Set<String> activeGroupIds = new Set<String>();
         for (TB_Subscription_Outbox__c item : outboxRecords) {
             if (item.Group_Id__c != null) {
@@ -101,7 +112,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             for (TB_Subscription_Outbox__c item : [
                 SELECT Group_Id__c
                 FROM TB_Subscription_Outbox__c
-                WHERE Dead_Lettered__c = TRUE AND Group_Id__c IN :activeGroupIds
+                WHERE (Dead_Lettered__c = TRUE OR Next_Attempt_Timestamp__c > :executeStart) AND Group_Id__c IN :activeGroupIds
             ]) {
                 deadGroups.add(item.Group_Id__c);
             }
@@ -114,9 +125,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
      * Bulk Resolve Messages.
      */
     private static Map<Id, Object> resolveMessages(Map<String, TB_Outbox_Message__c[]> msgsByType) {
-        Map<String, TB_Message_Definition__mdt> definitionsByLabel = TB_OutboxMetadataProvider.getMessageDefintionMap(
-            msgsByType.keySet()
-        );
+        Map<String, TB_Message_Definition__mdt> definitionsByLabel = TB_OutboxMetadataProvider.getMessageDefintionMap();
 
         //resolve Message DTO
         Map<Id, Object> allresolvedMessages = new Map<Id, Object>();
@@ -253,8 +262,10 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             return;
         }
 
-        if (Limits.getQueueableJobs() >= Limits.getLimitQueueableJobs()) {
-            System.debug('Unable to enqueue TB_OutboxRelayQueuable due to limits');
+        Integer maxAllowedJobs = System.isBatch() || System.isFuture() || System.isQueueable() ? 1 : Limits.getLimitQueueableJobs();
+
+        if (Limits.getQueueableJobs() >= maxAllowedJobs) {
+            System.debug('Unable to enqueue TB_OutboxRelayQueuable due to limits. Max Allowed Jobs: ' + maxAllowedJobs);
             return;
         }
 
