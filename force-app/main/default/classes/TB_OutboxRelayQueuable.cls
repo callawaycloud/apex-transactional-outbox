@@ -61,13 +61,27 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         System.attachFinalizer(finalizer);
 
         // Process Each Outbox
-        for (TB_Subscription_Outbox__c item : outboxRecords) {
+        for(Integer i = 0; i < outboxRecords.size(); i++){
+            TB_Subscription_Outbox__c item = outboxRecords[i];
+
             //check if item is part of a "deadlettered group"
             if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
                 continue;
             }
+
             TB_Message_Subscription__mdt subDef = subscriptionsMetadataMap.get(item.Subscription__c);
+
+            // DO NOT process isolated outbox unless it's first
+            if(i > 0 && subDef.Isolate_Relay__c){
+                if(item.Group_Id__c != null){
+                    // cannot continue processing any other messages in this group
+                    deadGroupIds.add(item.Group_Id__c);
+                }
+                continue;
+            }
+
             Map<String, Object> subConfig = TB_OutboxMetadataProvider.getSubscriptionConfig(subDef);
+
             Object resolvedEvt = allresolvedMessages.get(item.Outbox_Message__c);
             TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subConfig);
 
@@ -90,7 +104,13 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 //TODO: should this be added before? What happens if limit exception is thrown?
                 finalizer.addResult(obCtx);
             }
+
+            // do not process any additional records
+            if(subDef.Isolate_Relay__c){
+                break;
+            }
         }
+
         // attempt to save results with Lock
         finalizer.save();
     }

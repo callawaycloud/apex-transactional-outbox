@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Isolate_Relay__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, the Relay of this record will be preformed in its own &quot;Execution Context&quot;.  This provides the ability for the Relay Client to perform DML, but may impact performance.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>When checked, the Relay of this record will be preformed in its own &quot;Execution Context&quot;.  This provides the ability for the Relay Client to perform DML, but may impact performance.</inlineHelpText>
+    <label>Isolate Relay</label>
+    <type>Checkbox</type>
+</CustomField>

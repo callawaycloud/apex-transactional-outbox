@@ -150,13 +150,21 @@ _WARNING: If a message is dead lettered, processing for the Group can not contin
 
 Often it is desired to have a "backoff" strategy for retrying messages. This can allow the downstream systems time to come back up and process the message. 
 
-This can be configured via the `Message Subsciption -> Retry Backoff` field by passing a comma separate array of minutes to back off on each subsequent attempt.  
+This can be configured via the `Message Subscription -> Retry Backoff` field by passing a comma separate array of minutes to back off on each subsequent attempt.  
 
 For example, `0,15,60,720` would retry immediately once, then after 15 minutes, 1 hr and then continue to retry every 12 hours until there are no remaining attempts.
 
 The Relay Client may also call `ctx.setNextAttemptTimestamp()` directly to set the next attempt time. This will override the configured backoff strategy.
 
 *NOTE: The retry will not run until AFTER the specified timeout.  The actual timeout will depend on when the next relay request is queued or the timing of other new events that trigger the relay to run*
+
+### Isolated Relay
+
+In some cases, you may want the Relay of a single outbox record to happen in it's own Execution Context.  This is most commonly used when DML must be preformed by the Relay Client (Use Immediate Platform Events when possible!)
+
+This can be enabled by checking the `Message Subscription -> Isolate Relay` box.  
+
+*WARNING: This should be only used when absolutely needed as it may impact performance and consumes additional resources*
 
 ### Relay Limits
 
