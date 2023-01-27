@@ -174,8 +174,13 @@ This allows the Relay to operate at maximum efficiency without having to have kn
 
 ### Record Cleanup
 
-[TODO]: Scheduled job to remove any event where all it's outbox's have completed. Via `TTL` date?
+Record removal is managed via the `Subscription Outbox -> TTL` (time-to-live) field.  Once the TTL has expired, the records will be deleted. 
 
+This TTL can either be set by the relay client, by using the subscription metadata `TTL Offset` & `Mark TTL Event` or by any other process.
+
+The `TB_OutboxCleanup` job can be scheduled in order to automatically remove records that have expired.  
+
+`Outbox_Message__c` with no subscriptions will be removed by this job if the `Delete when outbox is empty` is checked.
 
 ### After Relay Actions
 

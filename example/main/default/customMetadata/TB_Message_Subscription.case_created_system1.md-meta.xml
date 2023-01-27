@@ -22,6 +22,14 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Isolate_Relay__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Mark_TTL_Event__c</field>
+        <value xsi:type="xsd:string">created</value>
+    </values>
+    <values>
         <field>Max_Attempts__c</field>
         <value xsi:type="xsd:double">3.0</value>
     </values>
@@ -35,6 +43,10 @@
     </values>
     <values>
         <field>Retry_Backoff__c</field>
-        <value xsi:type="xsd:string">0,15,60</value>
+        <value xsi:type="xsd:string">15,30</value>
+    </values>
+    <values>
+        <field>TTL_Offset__c</field>
+        <value xsi:type="xsd:double">120.0</value>
     </values>
 </CustomMetadata>

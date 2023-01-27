@@ -1,10 +1,16 @@
 public class TB_OutboxRelayContext {
     
+
     /**
      * The Outbox record that is being relayed
      * Contains raw information about the subscription and the message
      */
     public TB_Subscription_Outbox__c outbox;
+
+    /** 
+     * The subscription metadata
+     */
+    public TB_Message_Subscription__mdt subscription;
 
     /**
      * The Configuration field from the subscription after being passed through `JSON.deserializeUntyped`
@@ -26,11 +32,12 @@ public class TB_OutboxRelayContext {
     public TB_OutboxRelayContext(
         TB_Subscription_Outbox__c outbox,
         Object resolvedMessage,
-        Map<String, Object> subscriptionConfig
+        TB_Message_Subscription__mdt subscription
     ) {
         this.outbox = outbox;
         this.resolvedMessage = resolvedMessage;
-        this.subscriptionConfig = subscriptionConfig;
+        this.subscription = subscription;
+        this.subscriptionConfig = TB_OutboxMetadataProvider.getSubscriptionConfig(subscription);
 
         //TODO: Should this always reset? Or should we truncate the oldest lines? (split on \n & reverse before saving)
         if (this.outbox.Log__c == null) {
@@ -59,14 +66,24 @@ public class TB_OutboxRelayContext {
     // will be called by OutboxRelay
     public void setError(Exception e) {
         outbox.Last_Error_Message__c = e.getMessage() + '\n' + e.getStackTraceString();
+        // set next attempt backoff (if not already set by client)
+        if(outbox.Next_Attempt_Timestamp__c == null){
+            outbox.Next_Attempt_Timestamp__c = TB_OutboxMetadataProvider.getSubscriptionNextAttemptTimeStamp(subscription, (Integer) outbox.Relay_Attempts__c);
+        }
     }
 
     // will be called by OutboxRelay
     public void setSuccess() {
+         // set TTL if configured and not already set 
+        if(subscription.Mark_TTL_Event__c == 'completed' && subscription.TTL_Offset__c != null && outbox.TTL__c == null){
+            outbox.TTL__c = System.now().addMinutes((Integer) subscription.TTL_Offset__c);
+        }
+
         outbox.Completed_Timestamp__c = Datetime.Now();
     }
 
     public boolean isComplete() {
+       
         return outbox.Completed_Timestamp__c != null;
     }
 
@@ -76,5 +93,13 @@ public class TB_OutboxRelayContext {
 
     public void setNextAttemptTimestamp(Datetime nextAttemptTimestamp) {
         outbox.Next_Attempt_Timestamp__c = nextAttemptTimestamp;
+    }
+
+    public DateTime getTTL() {
+        return outbox.TTL__c;
+    }
+
+    public void setTTL(Datetime expirationTimestamp) {
+        outbox.TTL__c = expirationTimestamp;
     }
 }

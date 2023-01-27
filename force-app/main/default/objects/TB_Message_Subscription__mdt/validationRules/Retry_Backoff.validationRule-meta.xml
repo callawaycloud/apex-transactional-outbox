@@ -3,7 +3,7 @@
     <fullName>Retry_Backoff</fullName>
     <active>true</active>
     <description>Validate</description>
-    <errorConditionFormula>NOT(REGEX(Retry_Backoff__c, &quot;^[0-9]+(,[0-9]+)*$&quot;))</errorConditionFormula>
+    <errorConditionFormula>NOT(ISBLANK(Retry_Backoff__c)) &amp;&amp; NOT(REGEX(Retry_Backoff__c, &quot;^[0-9]+(,[0-9]+)*$&quot;))</errorConditionFormula>
     <errorDisplayField>Retry_Backoff__c</errorDisplayField>
     <errorMessage>Must be a series of comma seperated integers</errorMessage>
 </ValidationRule>

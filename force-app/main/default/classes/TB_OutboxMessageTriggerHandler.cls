@@ -42,12 +42,18 @@ public with sharing class TB_OutboxMessageTriggerHandler {
             }
 
             for (TB_Outbox_Message__c subEvt : recordsByMessageType.get(sub.Message_Definition__r.DeveloperName)) {
+               
                 TB_Subscription_Outbox__c outbox = new TB_Subscription_Outbox__c(
                     Outbox_Message__c = subEvt.Id,
                     Subscription__c = sub.DeveloperName,
                     Max_Attempts__c = sub.Max_Attempts__c,
                     Application__c = sub.Application__r.DeveloperName
                 );
+                // set auto TTL if configured
+                if(sub.Mark_TTL_Event__c  == 'created' && sub.TTL_Offset__c != null){
+                    outbox.TTL__c = System.now().addMinutes((Integer) sub.TTL_Offset__c);
+                }
+
                 outboxToInsert.add(outbox);
             }
         }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Delete_When_Outbox_Empty__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, the TB_Subscription cleanup job will remove any &quot;Outbox Message&quot; records once all Outbox records are also deleted.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>When checked, the TB_Subscription cleanup job will remove any &quot;Outbox Message&quot; records once all Outbox records are also deleted.</inlineHelpText>
+    <label>Delete when Outbox Empty</label>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,4 +1,4 @@
-public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
+public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
     static DateTime executeStart;
     public TB_OutboxRelayQueuable() {
 
@@ -24,7 +24,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 Last_Error_Message__c,
                 Relay_Attempts__c,
                 Completed_Timestamp__c,
-                Next_Attempt_Timestamp__c
+                Next_Attempt_Timestamp__c,
+                TTL__c
             FROM TB_Subscription_Outbox__c
             WHERE Completed_Timestamp__c = NULL 
             AND Dead_Lettered__c = FALSE
@@ -58,12 +59,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             subscriptionsMetadataMap.values()
         );
 
-        OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions);
+        OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions, deadGroupIds);
         System.attachFinalizer(finalizer);
 
         Boolean isFirst = true;
         // Process Each Outbox
-        for(TB_Subscription_Outbox__c item :  outboxRecords){
+        for(TB_Subscription_Outbox__c item : outboxRecords){
 
             //check if item is part of a "deadlettered group"
             if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
@@ -81,10 +82,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 continue;
             }
 
-            Map<String, Object> subConfig = TB_OutboxMetadataProvider.getSubscriptionConfig(subDef);
-
             Object resolvedEvt = allresolvedMessages.get(item.Outbox_Message__c);
-            TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subConfig);
+            TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subDef);
 
             try {
                 isFirst = false;
@@ -92,15 +91,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 TB_IOutboxRelayClient client = TB_OutboxMetadataProvider.getSubscriptionRelayClient(subDef);
                 client.send(obCtx);
                 obCtx.setSuccess();
+                
             } catch (Exception e) {
                 obCtx.setError(e);
                 if (item.Group_Id__c != null) {
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
-                }
-                // set next attempt backoff (if not already set by client)
-                if(obCtx.getNextAttemptTimestamp() == null){
-                    obCtx.setNextAttemptTimestamp(TB_OutboxMetadataProvider.getSubscriptionNextAttemptTimeStamp(subDef, (Integer) obCtx.outbox.Relay_Attempts__c));
                 }
             } finally {
                 //TODO: should this be added before? What happens if limit exception is thrown?
@@ -173,9 +169,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         private Map<Id, TB_OutboxRelayContext> results;
         private Set<Id> saved;
 
+        public Set<String> deadGroupIds;
+        
         private Map<String, TB_IAfterRelayAction> afterRelayActions = new Map<String, TB_IAfterRelayAction>();
 
-        private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions) {
+        private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions, Set<String> deadGroupIds) {
+            this.deadGroupIds = deadGroupIds;
             this.afterRelayActions = afterRelayActions;
             saved = new Set<Id>();
             results = new Map<Id, TB_OutboxRelayContext>();
@@ -231,6 +230,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                     SELECT Id
                     FROM TB_Subscription_Outbox__c
                     WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
+                    AND Next_Attempt_Timestamp__c <= :System.now()
+                    AND Group_Id__c NOT IN :deadGroupIds
                     LIMIT 1
                 ];
                 // more work to be done
