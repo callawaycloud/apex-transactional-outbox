@@ -30,7 +30,8 @@ public class TB_OutboxMetadataProvider {
                     Config__c,
                     Max_Attempts__c,
                     Enabled__c,
-                    After_Relay_Action__c
+                    After_Relay_Action__c,
+                    Retry_Backoff__c
                 FROM TB_Message_Subscription__mdt
             ];
         }
