@@ -30,6 +30,10 @@
                 <behavior>Edit</behavior>
                 <field>Retry_Backoff__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Isolate_Relay__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
