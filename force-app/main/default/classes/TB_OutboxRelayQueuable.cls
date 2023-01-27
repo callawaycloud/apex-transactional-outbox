@@ -1,5 +1,5 @@
 public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
-    DateTime executeStart;
+    static DateTime executeStart;
     public TB_OutboxRelayQueuable() {
 
     }
@@ -10,7 +10,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
     public void execute(QueueableContext ctx) {
         executeStart = System.now();
         
-        // Checkout outbox records with Lock
+        // Checkout outbox records with Lock.
+        // NOTE: This lock will be released as soon as the first HTTP callout is made :(
         List<TB_Subscription_Outbox__c> outboxRecordsUnsorted = [
             SELECT
                 Subscription__c,
@@ -60,9 +61,9 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions);
         System.attachFinalizer(finalizer);
 
+        Boolean isFirst = true;
         // Process Each Outbox
-        for(Integer i = 0; i < outboxRecords.size(); i++){
-            TB_Subscription_Outbox__c item = outboxRecords[i];
+        for(TB_Subscription_Outbox__c item :  outboxRecords){
 
             //check if item is part of a "deadlettered group"
             if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
@@ -72,7 +73,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             TB_Message_Subscription__mdt subDef = subscriptionsMetadataMap.get(item.Subscription__c);
 
             // DO NOT process isolated outbox unless it's first
-            if(i > 0 && subDef.Isolate_Relay__c){
+            if(!isFirst && subDef.Isolate_Relay__c){
                 if(item.Group_Id__c != null){
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
@@ -86,6 +87,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subConfig);
 
             try {
+                isFirst = false;
                 obCtx.setAttempt();
                 TB_IOutboxRelayClient client = TB_OutboxMetadataProvider.getSubscriptionRelayClient(subDef);
                 client.send(obCtx);
@@ -278,14 +280,19 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
     static boolean alreadyQueuedInContext = false;
     public static void enqueue(Id currentAsyncJobId) {
         if (alreadyQueuedInContext) {
-            System.debug('Already enqueue in this context');
+            System.debug('Relay Queuable Skipped: Already enqueue from this context');
+            return;
+        }
+
+        if(executeStart != null){
+            System.debug('Relay Queuable Skipped: In Relay Queuable Excute context');
             return;
         }
 
         Integer maxAllowedJobs = System.isBatch() || System.isFuture() || System.isQueueable() ? 1 : Limits.getLimitQueueableJobs();
 
         if (Limits.getQueueableJobs() >= maxAllowedJobs) {
-            System.debug('Unable to enqueue TB_OutboxRelayQueuable due to limits. Max Allowed Jobs: ' + maxAllowedJobs);
+            System.debug('Relay Queuable Skipped: Exceeded Max Allowed Jobs of ' + maxAllowedJobs);
             return;
         }
 
@@ -301,7 +308,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         ];
 
         if (currentJobs.size() > 0) {
-            System.debug('Relay Job already in progress: ' + currentJobs[0].Id);
+            System.debug('Relay Queuable Skipped: Relay Job already in progress - ' + currentJobs[0].Id);
             return;
         }
 
