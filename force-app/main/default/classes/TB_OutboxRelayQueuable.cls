@@ -1,7 +1,6 @@
 public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
     static DateTime executeStart;
     public TB_OutboxRelayQueuable() {
-
     }
 
     /**
@@ -9,7 +8,7 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
      */
     public void execute(QueueableContext ctx) {
         executeStart = System.now();
-        
+
         // Checkout outbox records with Lock.
         // NOTE: This lock will be released as soon as the first HTTP callout is made :(
         List<TB_Subscription_Outbox__c> outboxRecordsUnsorted = [
@@ -27,9 +26,11 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
                 Next_Attempt_Timestamp__c,
                 TTL__c
             FROM TB_Subscription_Outbox__c
-            WHERE Completed_Timestamp__c = NULL 
-            AND Dead_Lettered__c = FALSE
-            AND (Next_Attempt_Timestamp__c <= :executeStart OR Next_Attempt_Timestamp__c = NULL)
+            WHERE
+                Completed_Timestamp__c = NULL
+                AND Dead_Lettered__c = FALSE
+                AND (Next_Attempt_Timestamp__c <= :executeStart
+                OR Next_Attempt_Timestamp__c = NULL)
             FOR UPDATE
         ];
 
@@ -64,8 +65,7 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
 
         Boolean isFirst = true;
         // Process Each Outbox
-        for(TB_Subscription_Outbox__c item : outboxRecords){
-
+        for (TB_Subscription_Outbox__c item : outboxRecords) {
             //check if item is part of a "deadlettered group"
             if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
                 continue;
@@ -74,8 +74,8 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
             TB_Message_Subscription__mdt subDef = subscriptionsMetadataMap.get(item.Subscription__c);
 
             // DO NOT process isolated outbox unless it's first
-            if(!isFirst && subDef.Isolate_Relay__c){
-                if(item.Group_Id__c != null){
+            if (!isFirst && subDef.Isolate_Relay__c) {
+                if (item.Group_Id__c != null) {
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
                 }
@@ -91,7 +91,6 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
                 TB_IOutboxRelayClient client = TB_OutboxMetadataProvider.getSubscriptionRelayClient(subDef);
                 client.send(obCtx);
                 obCtx.setSuccess();
-                
             } catch (Exception e) {
                 obCtx.setError(e);
                 if (item.Group_Id__c != null) {
@@ -104,7 +103,7 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
             }
 
             // do not process any additional records
-            if(subDef.Isolate_Relay__c){
+            if (subDef.Isolate_Relay__c) {
                 break;
             }
         }
@@ -130,7 +129,10 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
             for (TB_Subscription_Outbox__c item : [
                 SELECT Group_Id__c
                 FROM TB_Subscription_Outbox__c
-                WHERE (Dead_Lettered__c = TRUE OR Next_Attempt_Timestamp__c > :executeStart) AND Group_Id__c IN :activeGroupIds
+                WHERE
+                    (Dead_Lettered__c = TRUE
+                    OR Next_Attempt_Timestamp__c > :executeStart)
+                    AND Group_Id__c IN :activeGroupIds
             ]) {
                 deadGroups.add(item.Group_Id__c);
             }
@@ -170,7 +172,7 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
         private Set<Id> saved;
 
         public Set<String> deadGroupIds;
-        
+
         private Map<String, TB_IAfterRelayAction> afterRelayActions = new Map<String, TB_IAfterRelayAction>();
 
         private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions, Set<String> deadGroupIds) {
@@ -229,9 +231,12 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
                 TB_Subscription_Outbox__c[] activeOutboxItems = [
                     SELECT Id
                     FROM TB_Subscription_Outbox__c
-                    WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
-                    AND Next_Attempt_Timestamp__c <= :System.now()
-                    AND Group_Id__c NOT IN :deadGroupIds
+                    WHERE
+                        Completed_Timestamp__c = NULL
+                        AND Dead_Lettered__c = FALSE
+                        AND (Next_Attempt_Timestamp__c <= :System.now()
+                        OR Next_Attempt_Timestamp__c = NULL)
+                        AND Group_Id__c NOT IN :deadGroupIds
                     LIMIT 1
                 ];
                 // more work to be done
@@ -246,8 +251,8 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
         }
 
         /** Run all After Relay Actions */
-        private void executeAfterActions(){
-            if(afterRelayActions.isEmpty()){
+        private void executeAfterActions() {
+            if (afterRelayActions.isEmpty()) {
                 return;
             }
 
@@ -263,12 +268,12 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
 
             //run each after relay action
             for (String subscriptionKey : afterRelayActions.keySet()) {
-                try{
+                try {
                     TB_IAfterRelayAction action = afterRelayActions.get(subscriptionKey);
-                    if(action != null){
+                    if (action != null) {
                         action.execute(resultsBySubscription.get(subscriptionKey));
                     }
-                }catch(Exception e){
+                } catch (Exception e) {
                     // eat the exception.  They should have handled it themselves :(
                     System.debug('Exception executing after relay action for subscription ' + subscriptionKey);
                     System.debug(e);
@@ -285,12 +290,16 @@ public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallout
             return;
         }
 
-        if(executeStart != null){
+        if (executeStart != null) {
             System.debug('Relay Queuable Skipped: In Relay Queuable Excute context');
             return;
         }
 
-        Integer maxAllowedJobs = System.isBatch() || System.isFuture() || System.isQueueable() ? 1 : Limits.getLimitQueueableJobs();
+        Integer maxAllowedJobs = System.isBatch() ||
+            System.isFuture() ||
+            System.isQueueable()
+            ? 1
+            : Limits.getLimitQueueableJobs();
 
         if (Limits.getQueueableJobs() >= maxAllowedJobs) {
             System.debug('Relay Queuable Skipped: Exceeded Max Allowed Jobs of ' + maxAllowedJobs);
