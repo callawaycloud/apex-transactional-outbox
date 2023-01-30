@@ -32,7 +32,9 @@ public class TB_OutboxMetadataProvider {
                     Enabled__c,
                     After_Relay_Action__c,
                     Isolate_Relay__c,
-                    Retry_Backoff__c
+                    Retry_Backoff__c,
+                    Mark_TTL_Event__c,
+                    TTL_Offset__c
                 FROM TB_Message_Subscription__mdt
             ];
         }

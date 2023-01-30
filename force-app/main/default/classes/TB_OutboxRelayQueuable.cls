@@ -1,7 +1,6 @@
-public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
+public class TB_OutboxRelayQueuable implements Queueable, Database.AllowsCallouts {
     static DateTime executeStart;
     public TB_OutboxRelayQueuable() {
-
     }
 
     /**
@@ -9,7 +8,7 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
      */
     public void execute(QueueableContext ctx) {
         executeStart = System.now();
-        
+
         // Checkout outbox records with Lock.
         // NOTE: This lock will be released as soon as the first HTTP callout is made :(
         List<TB_Subscription_Outbox__c> outboxRecordsUnsorted = [
@@ -24,11 +23,14 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 Last_Error_Message__c,
                 Relay_Attempts__c,
                 Completed_Timestamp__c,
-                Next_Attempt_Timestamp__c
+                Next_Attempt_Timestamp__c,
+                TTL__c
             FROM TB_Subscription_Outbox__c
-            WHERE Completed_Timestamp__c = NULL 
-            AND Dead_Lettered__c = FALSE
-            AND (Next_Attempt_Timestamp__c <= :executeStart OR Next_Attempt_Timestamp__c = NULL)
+            WHERE
+                Completed_Timestamp__c = NULL
+                AND Dead_Lettered__c = FALSE
+                AND (Next_Attempt_Timestamp__c <= :executeStart
+                OR Next_Attempt_Timestamp__c = NULL)
             FOR UPDATE
         ];
 
@@ -58,13 +60,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             subscriptionsMetadataMap.values()
         );
 
-        OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions);
+        OutboxFinalizer finalizer = new OutboxFinalizer(afterRelayActions, deadGroupIds);
         System.attachFinalizer(finalizer);
 
         Boolean isFirst = true;
         // Process Each Outbox
-        for(TB_Subscription_Outbox__c item :  outboxRecords){
-
+        for (TB_Subscription_Outbox__c item : outboxRecords) {
             //check if item is part of a "deadlettered group"
             if (item.Group_Id__c != null && deadGroupIds.contains(item.Group_Id__c)) {
                 continue;
@@ -73,18 +74,16 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             TB_Message_Subscription__mdt subDef = subscriptionsMetadataMap.get(item.Subscription__c);
 
             // DO NOT process isolated outbox unless it's first
-            if(!isFirst && subDef.Isolate_Relay__c){
-                if(item.Group_Id__c != null){
+            if (!isFirst && subDef.Isolate_Relay__c) {
+                if (item.Group_Id__c != null) {
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
                 }
                 continue;
             }
 
-            Map<String, Object> subConfig = TB_OutboxMetadataProvider.getSubscriptionConfig(subDef);
-
             Object resolvedEvt = allresolvedMessages.get(item.Outbox_Message__c);
-            TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subConfig);
+            TB_OutboxRelayContext obCtx = new TB_OutboxRelayContext(item, resolvedEvt, subDef);
 
             try {
                 isFirst = false;
@@ -98,17 +97,13 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                     // cannot continue processing any other messages in this group
                     deadGroupIds.add(item.Group_Id__c);
                 }
-                // set next attempt backoff (if not already set by client)
-                if(obCtx.getNextAttemptTimestamp() == null){
-                    obCtx.setNextAttemptTimestamp(TB_OutboxMetadataProvider.getSubscriptionNextAttemptTimeStamp(subDef, (Integer) obCtx.outbox.Relay_Attempts__c));
-                }
             } finally {
                 //TODO: should this be added before? What happens if limit exception is thrown?
                 finalizer.addResult(obCtx);
             }
 
             // do not process any additional records
-            if(subDef.Isolate_Relay__c){
+            if (subDef.Isolate_Relay__c) {
                 break;
             }
         }
@@ -134,7 +129,10 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             for (TB_Subscription_Outbox__c item : [
                 SELECT Group_Id__c
                 FROM TB_Subscription_Outbox__c
-                WHERE (Dead_Lettered__c = TRUE OR Next_Attempt_Timestamp__c > :executeStart) AND Group_Id__c IN :activeGroupIds
+                WHERE
+                    (Dead_Lettered__c = TRUE
+                    OR Next_Attempt_Timestamp__c > :executeStart)
+                    AND Group_Id__c IN :activeGroupIds
             ]) {
                 deadGroups.add(item.Group_Id__c);
             }
@@ -173,9 +171,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         private Map<Id, TB_OutboxRelayContext> results;
         private Set<Id> saved;
 
+        public Set<String> deadGroupIds;
+
         private Map<String, TB_IAfterRelayAction> afterRelayActions = new Map<String, TB_IAfterRelayAction>();
 
-        private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions) {
+        private OutboxFinalizer(Map<String, TB_IAfterRelayAction> afterRelayActions, Set<String> deadGroupIds) {
+            this.deadGroupIds = deadGroupIds;
             this.afterRelayActions = afterRelayActions;
             saved = new Set<Id>();
             results = new Map<Id, TB_OutboxRelayContext>();
@@ -230,7 +231,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
                 TB_Subscription_Outbox__c[] activeOutboxItems = [
                     SELECT Id
                     FROM TB_Subscription_Outbox__c
-                    WHERE Completed_Timestamp__c = NULL AND Dead_Lettered__c = FALSE
+                    WHERE
+                        Completed_Timestamp__c = NULL
+                        AND Dead_Lettered__c = FALSE
+                        AND (Next_Attempt_Timestamp__c <= :System.now()
+                        OR Next_Attempt_Timestamp__c = NULL)
+                        AND Group_Id__c NOT IN :deadGroupIds
                     LIMIT 1
                 ];
                 // more work to be done
@@ -245,8 +251,8 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
         }
 
         /** Run all After Relay Actions */
-        private void executeAfterActions(){
-            if(afterRelayActions.isEmpty()){
+        private void executeAfterActions() {
+            if (afterRelayActions.isEmpty()) {
                 return;
             }
 
@@ -262,12 +268,12 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
 
             //run each after relay action
             for (String subscriptionKey : afterRelayActions.keySet()) {
-                try{
+                try {
                     TB_IAfterRelayAction action = afterRelayActions.get(subscriptionKey);
-                    if(action != null){
+                    if (action != null) {
                         action.execute(resultsBySubscription.get(subscriptionKey));
                     }
-                }catch(Exception e){
+                } catch (Exception e) {
                     // eat the exception.  They should have handled it themselves :(
                     System.debug('Exception executing after relay action for subscription ' + subscriptionKey);
                     System.debug(e);
@@ -284,12 +290,16 @@ public with sharing class TB_OutboxRelayQueuable implements Queueable, Database.
             return;
         }
 
-        if(executeStart != null){
+        if (executeStart != null) {
             System.debug('Relay Queuable Skipped: In Relay Queuable Excute context');
             return;
         }
 
-        Integer maxAllowedJobs = System.isBatch() || System.isFuture() || System.isQueueable() ? 1 : Limits.getLimitQueueableJobs();
+        Integer maxAllowedJobs = System.isBatch() ||
+            System.isFuture() ||
+            System.isQueueable()
+            ? 1
+            : Limits.getLimitQueueableJobs();
 
         if (Limits.getQueueableJobs() >= maxAllowedJobs) {
             System.debug('Relay Queuable Skipped: Exceeded Max Allowed Jobs of ' + maxAllowedJobs);

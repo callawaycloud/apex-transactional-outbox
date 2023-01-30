@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TTL_Configuration</fullName>
+    <active>true</active>
+    <description>Ensures that TTL is completely configured</description>
+    <errorConditionFormula>(
+  ISBLANK(TTL_Offset__c) &amp;&amp; NOT(ISPICKVAL(Mark_TTL_Event__c, &quot;&quot;))
+) 
+|| 
+(
+  ISPICKVAL(Mark_TTL_Event__c, &quot;&quot;) &amp;&amp; NOT(ISBLANK(TTL_Offset__c))
+)</errorConditionFormula>
+    <errorMessage>&quot;TTL&quot; &amp; &quot;Mark TLL Event&quot; must both be set (or both be null)</errorMessage>
+</ValidationRule>

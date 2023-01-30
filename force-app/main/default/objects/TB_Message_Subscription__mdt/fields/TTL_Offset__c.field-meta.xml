@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TTL_Offset__c</fullName>
+    <description>The number of minutes this record will persist in the system after either Created or Delivered (controlled by &quot;Mark TTL Event&quot; field).
+
+Request that scheduled record deletion is setup to automatically remove records.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>The number of minutes this record will persist in the system after either Creation or Delivery.
+
+Request that scheduled record deletion is setup to automatically remove records.</inlineHelpText>
+    <label>TTL</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
+

@@ -30,6 +30,10 @@
                 <behavior>Edit</behavior>
                 <field>Next_Attempt_Timestamp__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>TTL__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

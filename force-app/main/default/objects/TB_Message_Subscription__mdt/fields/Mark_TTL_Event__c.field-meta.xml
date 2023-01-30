@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mark_TTL_Event__c</fullName>
+    <description>The outbox lifecycle event which results in "TTL Offset" being applied to the record.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>The outbox lifecycle event which results in TTL being applied to the record.</inlineHelpText>
+    <label>Mark TTL Event</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>created</fullName>
+                <default>true</default>
+                <label>created</label>
+            </value>
+            <value>
+                <fullName>completed</fullName>
+                <default>false</default>
+                <label>completed</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
