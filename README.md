@@ -9,23 +9,23 @@ Implemented using a ["Transactional Outbox"](https://microservices.io/patterns/d
 -   **Transactional Guarantee**: Messages cannot be "lost" if they fail delivery `*`
 -   **Fan Out**: Support delivering a message to `n` subscribers
 -   **Low Code**: Many use-cases can be achieved with 100% configuration or only a few lines of additional code
+-   **Retry Back-off**: Configure retry back-offs to give the downstream system time to come back up
 -   **Automatic Retries**: Control over automatic retries
 -   **Efficient**: Carefully optimized in it's consumption of limits (Daily AsyncJobs, SOQL Queries, DML)
 -   **"Dead-Lettering"**: Message "Dead-lettering" to prevent endless retries and make it easy to find failures
 -   **"Message Groups"**: support for sequential delivery of a set of messages when required
 -   **Logging**: Built-in logging capabilities make it easy to observe when things go wrong
+-   **Message TTL (time-to-live)**: Automatically remove messages & outbox records after they have been completed
 
 ### Planned improvements:
-
 - **Automatic Circuit Breaking**: If a message to be delivered to a subscription, a "Circuit Breaker" can be triggered to prevent other attempts for a period of time
-- **Retry Back-off**: Configure retry back-offs to give the downstream system time to come back up
-- **Message TTL (time-to-live)**: Automatically remove messages & outbox records after they have been completed
 - **Unique Message Controls**: Add ability to control message uniqueness.  
     - Only allowing a specific message to be queued once (must be considered with message TTL)
     - Not creating a duplicate outbox if one is already active (to increase efficiency)
 
 
-*   `*`: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2). Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.\*
+*`*`: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2). Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.*
+
 
 ## Framework Design
 
@@ -55,19 +55,21 @@ _The above diagram is a conceptual abstraction for the key aspects of the framew
 
 ### 0. Install & Setup
 
+1. git clone project
+2. `sf deploy metadata -x manifest/package.xml -o your_org_alias`
+3. Add `TB_Admin` permission set to Users or Permission Set Groups
+
 After installing the package, run the following anonymous apex to schedule the "Outbox Relay" cleanup process:
 
-```apex
-// Schedule the Outbox Relay Cleanup Process
-// This ensures that the Outbox Relay processes picks back up if it fails to chain
-System.schedule('TB Outbox Cleanup', '0 0 * * * ?', new TB_ScheduleRelay()); // Every hour
-```
+`sf apex run -f post-install/schedule.apex -o your_org_alias`
 
 ### 1. Create an "Application"
+`Custom Metadata Types -> TB Application -> Manage Records -> New`
 
 The Application serves as the container for a set of subscriptions. How you split out multiple Applications depends on the scenario, but typically you would have 1 Application per external service.
 
 ### 1. Define a "Message"
+`Custom Metadata Types -> TB Message Definition -> Manage Records -> New`
 
 All messages must be defined via `TB_Message_Definition__mdt` with the following properties:
 

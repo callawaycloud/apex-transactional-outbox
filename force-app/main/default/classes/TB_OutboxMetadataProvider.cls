@@ -56,7 +56,11 @@ public class TB_OutboxMetadataProvider {
 
         Map<String, Object> config = new Map<String, Object>();
         if (subscriptionDef.Config__c != null) {
-            config = (Map<String, Object>) JSON.deserializeUntyped(subscriptionDef.Config__c);
+            try {
+                config = (Map<String, Object>) JSON.deserializeUntyped(subscriptionDef.Config__c);
+            } catch (Exception e) {
+                throw new TB_InvalidConfigException('Invalid Config__c for subscription ' + subscriptionDef.DeveloperName + '. Must be a valid JSON object.');
+            }
         }
         configCache.put(subscriptionDef.DeveloperName, config);
         return config;
@@ -109,4 +113,6 @@ public class TB_OutboxMetadataProvider {
         }
         return afterRelayActions;
     }
+
+    public class TB_InvalidConfigException extends Exception {}
 }

@@ -11,7 +11,7 @@ public with sharing class TB_OutboxMessageTriggerHandler {
         Map<String, TB_Message_Definition__mdt> messageDefinitions = TB_OutboxMetadataProvider.getMessageDefintionMap();
         for (TB_Outbox_Message__c outboxMessage : (List<TB_Outbox_Message__c>) Trigger.new) {
             if (!messageDefinitions.containsKey(outboxMessage.Type__c)) {
-                outboxMessage.addError('The outbox message Type does not match a message definition.');
+                outboxMessage.addError('The outbox message Type ' + outboxMessage.Type__c + ' does not match any message definition.  You must provide the DeveloperName of the Message Definition.');
             }
         }
     }
