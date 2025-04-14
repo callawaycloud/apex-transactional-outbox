@@ -18,11 +18,12 @@ Implemented using a ["Transactional Outbox"](https://microservices.io/patterns/d
 -   **Message TTL (time-to-live)**: Automatically remove messages & outbox records after they have been completed
 
 ### Planned improvements:
-- **Automatic Circuit Breaking**: If a message to be delivered to a subscription, a "Circuit Breaker" can be triggered to prevent other attempts for a period of time
+- **Automatic Circuit Breaking**: If relay fails, a "Circuit Breaker" can be triggered to prevent other attempts for a period of time.
 - **Unique Message Controls**: Add ability to control message uniqueness.  
-    - Only allowing a specific message to be queued once (must be considered with message TTL)
-    - Not creating a duplicate outbox if one is already active (to increase efficiency)
-
+    - Only allowing a specific message to be queued once:
+        - Per Execution Context
+        - Ever (must be considered with message TTL)
+        - While outbox already active (to increase efficiency)
 
 *`*`: This framework provides a [delivery guarantee of "At Least Once"](https://aws.plainenglish.io/message-delivery-and-processing-guarantees-in-message-driven-and-event-driven-systems-8f17338763c2). Measures have been put in place to prevent duplicate message delivery, but it is possible in rare circumstances.*
 
@@ -34,7 +35,7 @@ Implemented using a ["Transactional Outbox"](https://microservices.io/patterns/d
 _The above diagram is a conceptual abstraction for the key aspects of the framework_
 
 1.  Some _"Domain Event"_ (trigger, event, flow, etc) creates a "Message" (eg: event), specifying it's `type` & `payload`.
-    -   A "outbox" record is created for each "Subscription" to the Message to track the status of the message delivery.
+    -   A "outbox" record is created for each "Subscription" of the Message to track the status of the message delivery.
     -   These records are all part of the atomic "Domain Transaction"
 2.  In a new context (in "Near Real Time"), the "Outbox Relay" runs to process the outbox. It will attempt to send each pending item in the outbox.
 3.  If the message is successful, the "Outbox" record is marked as complete. If it fails, the exception is logged, and it will be retried at some point in the future. If failures continued, it will be "Dead-Lettered" for manual review.
@@ -44,12 +45,12 @@ _The above diagram is a conceptual abstraction for the key aspects of the framew
 -   **Application** (`TB_Application__mdt`): An system/entity that receives messages. Used to group subscriptions76.
 -   **Message Definition** (`TB_Message_Definition__mdt`): Defines the message type and how it's payload is processed
 -   **Message Subscription** (`TB_Message_Subscription__mdt`): Defines who will receive each message.
--   **Outbox Message** (`TB_Outbox_Message__c`): An instance of message to be sent to each subscriber. Tracks the payload of the message.
--   **Subscription Outbox** (`TB_Subscription_Outbox__c`): The Outbox records tracking that status of the Outbox
--   **Outbox Relay** (`TB_OutboxRelayQueuable.cls`): The process responsible for ensuring all outbox messages are sent
--   **Relay Client** (`TB_IRelayClient.cls`): The process responsible for getting the message to the subscriber
--   **Message Resolver** (`TB_IMessageResolver.cls`): An optional process to "enhance" or modify the message payload at relay runtime.
--   **TB_OutboxRelayContext** (`TB_OutboxRelayContext.cls`): The context passed to the "Relay Client" for each outbox item. Contains the Message Payload, information on previous attempts, ability to log, etc.
+-   **Message** (`TB_Outbox_Message__c`): An instance of message to be sent to each subscriber. Tracks the payload of the message.
+-   **Subscription Outbox** (`TB_Subscription_Outbox__c`): The Outbox records tracking that status of the Outbox.
+-   **Outbox Relay** (`TB_OutboxRelayQueuable.cls`): The process responsible for ensuring all outbox messages are sent.
+-   **Relay Client** (`TB_IRelayClient.cls`): The process responsible for getting the message to the subscriber.
+-   **Message Resolver** (`TB_IMessageResolver.cls`): An optional process to "enhance" or modify the message payload just before the relay.
+-   **Relay Context** (`TB_OutboxRelayContext.cls`): The context passed to the "Relay Client" for each outbox item. Contains the Message Payload, information on previous attempts, ability to log, etc.
 
 ## Usage
 
