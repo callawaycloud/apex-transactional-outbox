@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
   <types>
+    <members>TB_IAfterRelayAction</members>
     <members>TB_GenericHttpRelayClient</members>
     <members>TB_IOutboxMessageResolver</members>
     <members>TB_IOutboxRelayClient</members>
@@ -11,6 +12,7 @@
     <members>TB_OutboxRelayQueuable</members>
     <members>TB_OutboxRelayTests</members>
     <members>TB_OutboxUtils</members>
+     <members>TB_ScheduleRelay</members>
     <members>TB_TransactionOutboxTestUtils</members>
     <name>ApexClass</name>
   </types>
@@ -37,6 +39,10 @@
     <members>TB_Outbox_Message__c-Outbox Message Layout</members>
     <members>TB_Subscription_Outbox__c-Subscription Outbox Layout</members>
     <name>Layout</name>
+  </types>
+  <types>
+    <members>TB_Admin</members>
+    <name>PermissionSet</name>
   </types>
   <version>55.0</version>
 </Package>

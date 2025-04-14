@@ -140,6 +140,12 @@ Once a message has been "Dead-Lettered" relay attempts will stop. To remove a Ou
 -   Increase the `Max_Attempts__c` to some value greater than the `Relay_Attempts__c`
 -   Uncheck `Manual_Deadletter__c`
 
+The message will be retried again when the next relay is run.  You can manually kick off the relay by running the `TB_OutboxRelayQueuable` class.
+
+```java
+TB_OutboxRelayQueuable.enqueue(null);
+```
+
 ### Message Groups
 
 A "Group Identifier" (`Group_Id__c`) can be assigned to a Outbox Message when it is created. For each Application, group messages are guaranteed to be delivered successfully in sequential order. This is useful when you need to ensure temporal consistency of messages.
@@ -194,3 +200,4 @@ However, these should be used sparingly and with caution:
 - Make sure to always check limits for queries, DML & do not make additional callouts. If an action triggers an "uncatchable exception", it could cause the message results to be lost in some cases and may halt the chaining of the relay job.
 
 **It is recommended that your AfterRelayAction publishes an "Immediate Platform Event" to handle additional processing.**
+

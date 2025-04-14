@@ -36,6 +36,9 @@ public class TB_GenericHttpRelayClient implements TB_IOutboxRelayClient {
             }
         }
 
+
+        ctx.log('body: ' + bodyStr);
+
         req.setEndpoint(uri);
         req.setBody(bodyStr);
         req.setMethod(method);
